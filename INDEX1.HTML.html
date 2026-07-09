@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Rekap & Salin NIK LPG</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --info: #2980b9;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: var(--primary);
+            margin-top: 0;
+        }
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus {
+            border-color: var(--info);
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .btn-add { background-color: var(--success); color: white; }
+        .btn-copy { background-color: var(--info); color: white; }
+        .btn-delete { background-color: var(--danger); color: white; padding: 6px 12px; font-size: 14px; }
+        .btn-clear { background-color: #7f8c8d; color: white; width: 100%; margin-top: 15px; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: center;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary);
+        }
+        .stat-box.success { border-left-color: var(--success); }
+        .stat-box.info { border-left-color: var(--info); }
+        .stat-num {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+        tr.copied {
+            background-color: #d4edda !important;
+            color: #155724;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-belum { background: #ffeeba; color: #856404; }
+        .status-sudah { background: #c3e6cb; color: #155724; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📋 Rekap & Salin NIK LPG</h2>
+    
+    <!-- STATISTIK -->
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div>Total NIK</div>
+            <div class="stat-num" id="total-nik">0</div>
+        </div>
+        <div class="stat-box success">
+            <div>Sudah Disalin</div>
+            <div class="stat-num" id="total-disalin">0</div>
+        </div>
+        <div class="stat-box info">
+            <div>Belum Disalin</div>
+            <div class="stat-num" id="total-belum">0</div>
+        </div>
+    </div>
+
+    <!-- FORM INPUT -->
+    <div class="form-group">
+        <input type="text" id="nik-input" maxlength="16" placeholder="Ketik atau Scan NIK di sini..." autocomplete="off">
+        <button class="btn-add" onclick="tambahNik()">Tambah</button>
+    </div>
+
+    <!-- TABEL REKAP -->
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th width="50">No</th>
+                    <th>Nomor NIK</th>
+                    <th>Status</th>
+                    <th width="180">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="tabel-body">
+                <!-- Data otomatis muncul di sini -->
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn-clear" onclick="hapusSemua()">Format / Hapus Semua Data</button>
+</div>
+
+<script>
+    // Inisialisasi data dari LocalStorage browser
+    let dataLpg = JSON.parse(localStorage.getItem('data_lpg_nik')) || [];
+
+    // Fungsi menampilkan data ke tabel
+    function renderTabel() {
+        const tbody = document.getElementById('tabel-body');
+        tbody.innerHTML = '';
+        
+        let countDisalin = 0;
+
+        dataLpg.forEach((item, index) => {
+            if(item.disalin) countDisalin++;
+            
+            const rowClass = item.disalin ? 'copied' : '';
+            const statusBadge = item.disalin ? 
+                '<span class="status-badge status-sudah">Sudah</span>' : 
+                '<span class="status-badge status-belum">Belum</span>';
+
+            tbody.innerHTML += `
+                <tr class="${rowClass}">
+                    <td>${index + 1}</td>
+                    <td><strong>${item.nik}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn-copy" onclick="salinNik(${index}, '${item.nik}')">Salin</button>
+                        <button class="btn-delete" onclick="hapusNik(${index})">Hapus</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        // Update Statistik
+        document.getElementById('total-nik').innerText = dataLpg.length;
+        document.getElementById('total-disalin').innerText = countDisalin;
+        document.getElementById('total-belum').innerText = dataLpg.length - countDisalin;
+    }
+
+    // Fungsi Tambah NIK
+    function tambahNik() {
+        const input = document.getElementById('nik-input');
+        const nikValue = input.value.trim();
+
+        if (nikValue.length !== 16 || isNaN(nikValue)) {
+            alert('NIK harus berupa 16 digit angka!');
+            return;
+        }
+
+        // Cek duplikasi jika diperlukan (opsional)
+        const sudahAda = dataLpg.some(item => item.nik === nikValue);
+        if (sudahAda) {
+            alert('NIK ini sudah ada di daftar!');
+            return;
+        }
+
+        dataLpg.push({ nik: nikValue, disalin: false });
+        localStorage.setItem('data_lpg_nik', JSON.stringify(dataLpg));
+        
+        input.value = '';
+        input.focus();
+        renderTabel();
+    }
+
+    // Fitur tekan 'Enter' langsung submit
+    document.getElementById('nik-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            tambahNik();
+        }
+    });
+
+    // Fungsi Salin NIK ke Clipboard
+    function salinNik(index, nik) {
+        navigator.clipboard.writeText(nik).then(() => {
+            // Tandai sudah disalin
+            dataLpg[index].disalin = true;
+            localStorage.setItem('data_lpg_nik', JSON.stringify(dataLpg));
+            renderTabel();
+        }).catch(err => {
+            alert('Gagal menyalin text: ', err);
+        });
+    }
+
+    // Fungsi Hapus Satu Baris NIK
+    function hapusNik(index) {
+        if(confirm('Hapus NIK ini dari daftar?')) {
+            dataLpg.splice(index, 1);
+            localStorage.setItem('data_lpg_nik', JSON.stringify(dataLpg));
+            renderTabel();
+        }
+    }
+
+    // Fungsi Hapus Semua Data
+    function hapusSemua() {
+        if(confirm('PERINGATAN: Semua data rekap NIK akan dihapus permanen. Lanjutkan?')) {
+            dataLpg = [];
+            localStorage.removeItem('data_lpg_nik');
+            renderTabel();
+        }
+    }
+
+    // Jalankan render tabel saat pertama kali web dibuka
+    renderTabel();
+</script>
+
+</body>
+</html>
